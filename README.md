@@ -1,4 +1,4 @@
-```markdown
+
 # E-Commerce Platform
 
 This project is an E-Commerce platform where users can buy and sell items, similar to platforms like eBay. The website allows sellers to list products, buyers to make purchases or place bids, and admins/managers to oversee platform operations.
