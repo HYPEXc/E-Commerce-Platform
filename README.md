@@ -29,7 +29,7 @@ This project is an E-Commerce platform where users can buy and sell items, simil
 ## Setup Instructions
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/your-repo-name.git
+   git clone git@github.com:HYPEXc/E-Commerce-Platform.git
    ```
 
 2. Backend (Django):
