@@ -1,7 +1,7 @@
 from django.db import models
 from django.db.models import Q
 
-from Hypex.accounts.models import User
+from accounts.models import User
 
 
 # from django.contrib.auth.models import User
@@ -101,7 +101,7 @@ class Product(models.Model):
     description = models.TextField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
     main_image = models.ImageField(upload_to='products/')
-    owner = models.ForeignKey(User, on_delete=models.CASCADE)
+    owner = models.ForeignKey('accounts.User', on_delete=models.CASCADE)  # Use string here
     sales_count = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -109,7 +109,6 @@ class Product(models.Model):
     keywords = models.ManyToManyField(Keyword, related_name='products')
     visible = models.BooleanField(default=True)
 
-    # Assign the custom manager
     objects = ProductManager()
 
     def __str__(self):
@@ -117,7 +116,7 @@ class Product(models.Model):
 
 
 class ProductImage(models.Model):
-    from Hypex.Hypex.utils import unique_file_name
+    from Hypex.utils import unique_file_name
     product = models.ForeignKey(Product, related_name='images', on_delete=models.CASCADE)
 
     # Using a unique upload path function
