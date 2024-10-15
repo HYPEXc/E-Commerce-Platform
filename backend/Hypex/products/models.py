@@ -1,10 +1,9 @@
 from django.db import models
 from django.db.models import Q
 
-from accounts.models import User
+from django.contrib.auth import get_user_model
 
-
-# from django.contrib.auth.models import User
+User = get_user_model()
 
 
 class Category(models.Model):
@@ -101,12 +100,13 @@ class Product(models.Model):
     description = models.TextField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
     main_image = models.ImageField(upload_to='products/')
-    owner = models.ForeignKey('accounts.User', on_delete=models.CASCADE)  # Use string here
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='products')  # Related name for User
     sales_count = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    category = models.ForeignKey(Category, on_delete=models.CASCADE)
-    keywords = models.ManyToManyField(Keyword, related_name='products')
+    category = models.ForeignKey(Category, on_delete=models.CASCADE,
+                                 related_name='products')  # Related name for Category
+    keywords = models.ManyToManyField(Keyword, related_name='products')  # Already has related_name
     visible = models.BooleanField(default=True)
 
     objects = ProductManager()
@@ -133,3 +133,13 @@ class ProductViewLog(models.Model):
 
     def __str__(self):
         return f"{self.user} viewed {self.product} on {self.view_date}"
+
+
+class SearchLog(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    query = models.CharField(max_length=255)
+    search_date = models.DateTimeField(auto_now_add=True)
+    keywords = models.ManyToManyField(Keyword, related_name='search_logs', blank=True)  # Link to keywords
+
+    def __str__(self):
+        return f"{self.user} searched for '{self.query}' on {self.search_date}"

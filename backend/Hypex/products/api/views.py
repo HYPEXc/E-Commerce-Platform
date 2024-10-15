@@ -4,16 +4,19 @@ from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView,
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
 from rest_framework.response import Response
 
-from .permissions import isStaffEditorPermission, IsProductOwnerPermission
+from .permissions import IsStaffEditorPermission, IsProductOwnerPermission
 from .serializers import ProductsSerializer
-from ..models import Product
-from ...accounts.models import ProductViewLog, User
+from ..models import Product, ProductViewLog
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 
 class TrendingProductListView(ListAPIView):
     serializer_class = ProductsSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
     authentication_classes = [SessionAuthentication]
+
     def get_queryset(self):
         # Get the top 10 trending products based on sales_count
         return Product.objects.filter(visible=True).order_by('-sales_count')[:10]
@@ -35,7 +38,7 @@ class UserProductListView(ListAPIView):
 
 class ProductUpdateView(UpdateAPIView):
     serializer_class = ProductsSerializer
-    permission_classes = [IsAuthenticated, isStaffEditorPermission, IsProductOwnerPermission]
+    permission_classes = [IsAuthenticated, IsStaffEditorPermission, IsProductOwnerPermission]
 
     def get_queryset(self):
         # Get user_id from URL or use the authenticated user's ID if not provided
@@ -50,6 +53,15 @@ class ProductAddView(CreateAPIView):
     serializer_class = ProductsSerializer
     permission_classes = [IsAuthenticated]
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            self.perform_create(serializer)
+            return Response(serializer.data, status=201)
+        else:
+            print(serializer.errors)  # Log validation errors
+            return Response(serializer.errors, status=400)
+
 
 class ProductListView(ListAPIView):
     queryset = Product.objects.all()
@@ -60,7 +72,7 @@ class ProductListView(ListAPIView):
         user = self.request.user
 
         if user.is_authenticated:
-            return Product.objects.get_recommended_products_for_authenticated_user(user)
+            return Product.objects.get_recommended_products_for_authenticated_user(user=user, request=self.request)
 
         else:
             viewed_products_ids = self.request.COOKIES.get('viewed_products', '')

@@ -1,7 +1,7 @@
 from rest_framework import permissions
 
 
-class isStaffEditorPermission(permissions.DjangoModelPermissions):
+class IsStaffEditorPermission(permissions.DjangoModelPermissions):
     """
     Custom permission to allow staff editor to modify, destroy, create and view a product.
     """

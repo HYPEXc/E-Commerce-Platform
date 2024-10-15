@@ -7,13 +7,6 @@ class ProductImageSerializer(ModelSerializer):
         model = ProductImage
         fields = ['image']
 
-
-class LimitedProductSerializer(ModelSerializer):
-    class Meta:
-        model = Product
-        fields = ['name', 'main_image', 'price', 'owner']
-
-
 class ProductsSerializer(ModelSerializer):
     class Meta:
         model = Product

@@ -1,6 +1,8 @@
-from django.shortcuts import render, redirect
-from .models import User
+from django.shortcuts import redirect
 import requests
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 
 def register(request):
@@ -23,4 +25,3 @@ def register(request):
                 username=username,
             )
             return redirect('login')  # Redirect to login or success page
-    # return render(request, 'accounts/register.html')
