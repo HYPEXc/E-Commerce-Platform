@@ -1,7 +1,10 @@
-from django.db import models
-from django.db.models import Q
-
 from django.contrib.auth import get_user_model
+from django.core.validators import MinValueValidator, MaxValueValidator
+from django.db import models
+from django.db.models import Q, Avg
+from django.utils.text import slugify
+
+from Hypex.utils import unique_file_name
 
 User = get_user_model()
 
@@ -26,13 +29,13 @@ class ProductManager(models.Manager):
         viewed_logs = ProductViewLog.objects.filter(user=user).select_related('product')
         viewed_products = [log.product for log in viewed_logs]
 
-        # Retrieve viewed products from cookies
+        # Retrieve viewed products from cookies (now using slugs)
         viewed_products_cookies = request.COOKIES.get('viewed_products', '')
-        viewed_products_list = viewed_products_cookies.split(',') if viewed_products_cookies else []
+        viewed_products_slugs = viewed_products_cookies.split(',') if viewed_products_cookies else []
 
-        # Get products based on cookie IDs that are visible
+        # Get products based on cookie slugs that are visible
         viewed_products_from_cookies = Product.objects.filter(
-            id__in=[int(pid) for pid in viewed_products_list if pid.isdigit()],
+            slug__in=[slug for slug in viewed_products_slugs],
             visible=True,  # Check if product is visible
         )
 
@@ -44,19 +47,19 @@ class ProductManager(models.Manager):
         keywords = set()
         for product in combined_viewed_products:
             categories.add(product.category)
-            keywords.update(product.keywords.all())
+            keywords.update(product.tags.all())
 
         # Recommendations based on categories and keywords, ensuring products are visible
         recommended_products = self.filter(
             Q(category__in=categories) | Q(keywords__in=keywords),
             visible=True  # Check if product is visible
-        ).exclude(pk__in=[product.pk for product in combined_viewed_products]).distinct()
+        ).exclude(slug__in=[product.slug for product in combined_viewed_products]).distinct()
 
         # Get related products based on categories and keywords, ensuring they are visible
         related_products = self.filter(
             Q(category__in=categories) | Q(keywords__in=keywords),
             visible=True
-        ).exclude(pk__in=[product.pk for product in combined_viewed_products]).distinct()
+        ).exclude(slug__in=[product.slug for product in combined_viewed_products]).distinct()
 
         # Combine all products ensuring distinct products
         all_recommended_products = list(recommended_products) + list(related_products)
@@ -68,7 +71,7 @@ class ProductManager(models.Manager):
 
         # If less than 200 products are found, add random visible products to fill up to 200
         if len(all_recommended_products) < 200:
-            random_products = self.exclude(pk__in=[product.pk for product in all_recommended_products]) \
+            random_products = self.exclude(slug__in=[product.slug for product in all_recommended_products]) \
                                   .filter(visible=True).order_by('?')[
                               :200 - len(all_recommended_products)]  # Ensure random products are visible
 
@@ -77,10 +80,10 @@ class ProductManager(models.Manager):
 
         return all_recommended_products[:200]  # Ensure the final list does not exceed 200 products
 
-    def get_recommended_products_for_unauthenticated_user(self, viewed_product_ids):
-        # Recommendations based on product IDs in cookies that are visible
+    def get_recommended_products_for_unauthenticated_user(self, viewed_product_slugs):
+        # Recommendations based on product slugs in cookies that are visible
         recommended_products = self.filter(
-            pk__in=viewed_product_ids,
+            slug__in=viewed_product_slugs,
             visible=True  # Check if product is visible
         ).distinct()
 
@@ -99,24 +102,62 @@ class Product(models.Model):
     name = models.CharField(max_length=150)
     description = models.TextField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
-    main_image = models.ImageField(upload_to='products/')
-    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='products')  # Related name for User
+    main_image = models.ImageField(upload_to=unique_file_name)
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='products')
     sales_count = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    category = models.ForeignKey(Category, on_delete=models.CASCADE,
-                                 related_name='products')  # Related name for Category
-    keywords = models.ManyToManyField(Keyword, related_name='products')  # Already has related_name
-    visible = models.BooleanField(default=True)
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='products')
+    tags = models.ManyToManyField(Keyword, related_name='products')
+    public = models.BooleanField(default=True)
+    slug = models.SlugField(max_length=150, unique=True, blank=True)
 
     objects = ProductManager()
+
+    @property
+    def visible(self):
+        return self.public
+
+    def is_public(self):
+        return self.public
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)  # Automatically create slug from name
+        super().save(*args, **kwargs)
+
+    def get_tags_list(self):
+        """Return a list of tag names associated with the product."""
+        return [tag.name for tag in self.tags.all()]
+
+    def rating(self):
+        """Returns the average rating for this product."""
+        ratings = self.ratings.all()
+        if ratings.exists():
+            return ratings.aggregate(Avg('rating'))['rating__avg']
+        return 0.0
 
     def __str__(self):
         return self.name
 
 
+class Rating(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='ratings')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='ratings')
+    rating = models.IntegerField(
+        default=0,
+        validators=[MinValueValidator(1), MaxValueValidator(5)]  # Rating between 1 and 5
+    )
+    comment = models.TextField(blank=True)  # Optional comment
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        # Ensure each user can only rate a product once
+        unique_together = ('product', 'user')
+
+
 class ProductImage(models.Model):
-    from Hypex.utils import unique_file_name
     product = models.ForeignKey(Product, related_name='images', on_delete=models.CASCADE)
 
     # Using a unique upload path function
@@ -139,7 +180,49 @@ class SearchLog(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     query = models.CharField(max_length=255)
     search_date = models.DateTimeField(auto_now_add=True)
-    keywords = models.ManyToManyField(Keyword, related_name='search_logs', blank=True)  # Link to keywords
+    keywords = models.ManyToManyField(Keyword, related_name='search_logs', blank=True)
 
     def __str__(self):
         return f"{self.user} searched for '{self.query}' on {self.search_date}"
+
+
+class Wishlist(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    # A title field for the wishlist if you want users to name them
+    title = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.name}'s Wishlist"
+
+class WishlistItem(models.Model):
+    wishlist = models.ForeignKey(Wishlist, on_delete=models.CASCADE, related_name='items')  # Updated related_name
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # Ensure a product can't be added twice
+        unique_together = ('wishlist', 'product')
+
+    def __str__(self):
+        return f"{self.product.name} in {self.wishlist.__str__()}"
+
+class Cart(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.name}'s Cart"
+
+class CartItem(models.Model):
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')  # Updated related_name
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(default=1)
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # Ensure a product can't be added twice for the same user
+        unique_together = ('cart', 'product')
+
+    def __str__(self):
+        return f"{self.quantity} {self.product.name} in {self.cart.user.name}'s Cart"

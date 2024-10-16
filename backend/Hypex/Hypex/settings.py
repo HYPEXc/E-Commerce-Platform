@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 from datetime import timedelta
 from pathlib import Path
+from os import environ
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -19,17 +20,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-gzaldwnh_b1@#c=kg00t9nso*l70i8^f%c-dwg=y1u*gjs!006'
+SECRET_KEY = environ.get('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = environ.get('DEBUG') == '1'
 
 ALLOWED_HOSTS = [
 ]
 
-# Application definition
-
 INSTALLED_APPS = [
+    # Django default apps
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -37,14 +37,19 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    # Local apps (Project's apps)
     'accounts.apps.AccountsConfig',
     'products.apps.ProductsConfig',
     'api.apps.ApiConfig',
 
+    # Third-party libraries
     'rest_framework',
     'rest_framework.authtoken',
     'rest_framework_simplejwt',
     'corsheaders',
+
+    # Third-party services
+    'algoliasearch_django',
 ]
 
 MIDDLEWARE = [
@@ -87,7 +92,12 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
 }
 
-WSGI_APPLICATION = 'backend.wsgi.application'
+ALGOLIA = {
+  'APPLICATION_ID': environ.get('ALGOLIA_APPLICATION_ID'),
+  'API_KEY': environ.get('ALGOLIA_API_KEY'),
+}
+
+WSGI_APPLICATION = 'Hypex.wsgi.application'
 
 CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",

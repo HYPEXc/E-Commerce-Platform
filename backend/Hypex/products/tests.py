@@ -33,7 +33,7 @@ class ProductAPITests(TestCase):
         )
 
         # Assign the keyword using set() after the product has been created
-        self.product.keywords.set([self.keyword])
+        self.product.tags.set([self.keyword])
 
         # Obtain a token for the test user
         response = self.client.post(reverse('token_obtain_pair'), {
