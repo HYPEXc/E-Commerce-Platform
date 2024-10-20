@@ -41,10 +41,14 @@ INSTALLED_APPS = [
     'accounts.apps.AccountsConfig',
     'products.apps.ProductsConfig',
     'api.apps.ApiConfig',
+    'cart.apps.CartConfig',
+    'whishlist.apps.WhishlistConfig',
+    'orders.apps.OrdersConfig',
 
     # Third-party libraries
     'rest_framework',
     'rest_framework.authtoken',
+    'djoser',
     'rest_framework_simplejwt',
     'corsheaders',
 
@@ -84,7 +88,7 @@ TEMPLATES = [
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ]
+    ],
 }
 
 SIMPLE_JWT = {
@@ -93,8 +97,8 @@ SIMPLE_JWT = {
 }
 
 ALGOLIA = {
-  'APPLICATION_ID': environ.get('ALGOLIA_APPLICATION_ID'),
-  'API_KEY': environ.get('ALGOLIA_API_KEY'),
+    'APPLICATION_ID': environ.get('ALGOLIA_APPLICATION_ID'),
+    'API_KEY': environ.get('ALGOLIA_API_KEY'),
 }
 
 WSGI_APPLICATION = 'Hypex.wsgi.application'
@@ -112,15 +116,59 @@ CORS_ALLOW_METHODS = (
     "PUT",
 )
 
+#      ╭──────────────────────────────────────────────────────────╮
+#      │                   Email Configuration                    │
+#      ╰──────────────────────────────────────────────────────────╯
+# ━━ THIS SECTION CONFIGURES THE EMAIL BACKEND FOR SENDING EMAILS IN THE APPLICATION. ━━
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = environ.get('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = environ.get('EMAIL_HOST_PASSWORD')
+
+DJOSER = {
+    'LOGIN_FIELD': 'email',
+    'SEND_ACTIVATION_EMAIL': True,
+    'SEND_CONFIRMATION_EMAIL': True,
+    'ACTIVATION_URL': 'activate/{uid}/{token}',
+    'SERIALIZERS': {
+        'user_create': 'accounts.api.serializers.UserCreateSerializer',
+        'user': 'accounts.api.serializers.UserCreateSerializer',
+        'user_delete': 'djoser.serializers.UserDeleteSerializer',
+    },
+
+    'PASSWORD_RESET_CONFIRM_URL': 'password/reset/confirm/{uid}/{token}',
+    'USERNAME_RESET_CONFIRM_URL': 'username/reset/confirm/{uid}/{token}',
+
+    'PASSWORD_RESET_SHOW_EMAIL': True,
+    'USERNAME_CHANGED_EMAIL_CONFIRMATION': True,
+    'PASSWORD_CHANGED_EMAIL_CONFIRMATION': True,
+    'USER_CREATE_PASSWORD_RETYPE': True,  # Require retype for password creation
+    'SET_USERNAME_RETYPE': True,
+}
+
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': environ.get('DATABASE_NAME'),  # Your database name
+        'USER': environ.get('DATABASE_USERNAME'),  # Your MySQL username
+        'PASSWORD': environ.get('DATABASE_PASSWORD'),  # Your MySQL password
+        'HOST': environ.get('DATABASE_HOST'),  # Host, usually localhost
+        'PORT': environ.get('DATABASE_PORT'),  # Default MySQL port
     }
 }
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
@@ -161,4 +209,4 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# AUTH_USER_MODEL = 'auth.User'
+AUTH_USER_MODEL = 'accounts.UserAccount'

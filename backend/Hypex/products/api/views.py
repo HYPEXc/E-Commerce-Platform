@@ -1,14 +1,13 @@
+from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.authentication import SessionAuthentication
-from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView, UpdateAPIView, get_object_or_404, \
-    GenericAPIView
+from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView, UpdateAPIView, get_object_or_404
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
 from rest_framework.response import Response
 
 from .permissions import IsStaffEditorPermission, IsProductOwnerPermission
 from .serializers import ProductSerializer
 from ..models import Product, ProductViewLog
-from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
@@ -63,7 +62,6 @@ class ProductAddView(CreateAPIView):
             self.perform_create(serializer)
             return Response(serializer.data, status=201)
         else:
-            print(serializer.errors)  # Log validation errors
             return Response(serializer.errors, status=400)
 
 
@@ -96,7 +94,7 @@ class ProductListView(ListAPIView):
 class ProductDetailView(RetrieveAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
-    lookup_field = 'slug'  # Change lookup field to 'slug'
+    lookup_field = 'slug'
 
     permission_classes = [IsAuthenticatedOrReadOnly]
 

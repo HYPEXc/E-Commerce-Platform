@@ -1,7 +1,10 @@
+from decimal import Decimal
+
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.db.models import Q, Avg
+from django.urls import reverse
 from django.utils.text import slugify
 
 from Hypex.utils import unique_file_name
@@ -101,7 +104,8 @@ class ProductManager(models.Manager):
 class Product(models.Model):
     name = models.CharField(max_length=150)
     description = models.TextField()
-    price = models.DecimalField(max_digits=10, decimal_places=2)
+    actual_price = models.DecimalField(max_digits=10, decimal_places=2)
+    selling_price = models.DecimalField(max_digits=10, decimal_places=2, editable=False)
     main_image = models.ImageField(upload_to=unique_file_name)
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='products')
     sales_count = models.IntegerField(default=0)
@@ -114,6 +118,29 @@ class Product(models.Model):
 
     objects = ProductManager()
 
+    def get_absolute_url(self):
+        return reverse('product-detail', kwargs={'slug': self.slug})
+
+    @property
+    def endpoint(self):
+        return self.get_absolute_url()
+
+    @property
+    def path(self):
+        return f'/products/{self.slug}/'
+
+    @property
+    def edit_endpoint(self):
+        return reverse('product-update', kwargs={'slug': self.slug})
+
+    @property
+    def edit_path(self):
+        return f'/products/{self.slug}/edit/'
+
+    @property
+    def price(self):
+        return self.selling_price
+
     @property
     def visible(self):
         return self.public
@@ -122,6 +149,7 @@ class Product(models.Model):
         return self.public
 
     def save(self, *args, **kwargs):
+        self.selling_price = self.actual_price * Decimal('0.10')
         if not self.slug:
             self.slug = slugify(self.name)  # Automatically create slug from name
         super().save(*args, **kwargs)
@@ -184,45 +212,3 @@ class SearchLog(models.Model):
 
     def __str__(self):
         return f"{self.user} searched for '{self.query}' on {self.search_date}"
-
-
-class Wishlist(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    # A title field for the wishlist if you want users to name them
-    title = models.CharField(max_length=255, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"{self.user.name}'s Wishlist"
-
-class WishlistItem(models.Model):
-    wishlist = models.ForeignKey(Wishlist, on_delete=models.CASCADE, related_name='items')  # Updated related_name
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    added_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        # Ensure a product can't be added twice
-        unique_together = ('wishlist', 'product')
-
-    def __str__(self):
-        return f"{self.product.name} in {self.wishlist.__str__()}"
-
-class Cart(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"{self.user.name}'s Cart"
-
-class CartItem(models.Model):
-    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')  # Updated related_name
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    quantity = models.PositiveIntegerField(default=1)
-    added_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        # Ensure a product can't be added twice for the same user
-        unique_together = ('cart', 'product')
-
-    def __str__(self):
-        return f"{self.quantity} {self.product.name} in {self.cart.user.name}'s Cart"
