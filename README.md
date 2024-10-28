@@ -25,6 +25,7 @@ This project is an E-Commerce platform where users can buy and sell items, simil
 ## Collaborators
 - **Yousef M. Y. AlSabbah** - Django Developer
 - **Yosef G. Harara** - React Developer
+- **Abdallah Jamal** - Android Developer
 
 ## Setup Instructions
 1. Clone the repository:
